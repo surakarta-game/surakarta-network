@@ -124,7 +124,7 @@ class SurakartaAgentRemoteFactoryImpl : public SurakartaDaemon::AgentFactory {
     }
 
     PieceColor AssignedColor() const {
-        return my_color_;
+        return ReverseColor(my_color_);
     }
 
     SurakartaEvent<std::optional<SurakartaIllegalMoveReason>, SurakartaEndReason, PieceColor> OnGameEnded;
