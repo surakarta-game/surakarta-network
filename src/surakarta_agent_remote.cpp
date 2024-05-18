@@ -42,7 +42,10 @@ class SurakartaAgentRemoteImpl : public SurakartaAgentBase {
             auto response = response_optional.value();
             if (response.opcode == OPCODE::MOVE_OP) {
                 auto decoded = SurakartaNetworkMessageMove(response);
-                return SurakartaMove(decoded.From(), decoded.To(), my_color);
+                auto move = SurakartaMove(decoded.From(), decoded.To(), my_color);
+                SurakartaTemporarilyApplyMoveGuardUtil(board_, move);
+                on_board_update_util_.UpdateAndGetTrace();
+                return move;
             } else if (response.opcode == OPCODE::END_OP) {
                 auto decoded = SurakartaNetworkMessageEnd(response);
                 OnGameEnded.Invoke(decoded.IllegalMoveReason(), decoded.EndReason(), my_color);
