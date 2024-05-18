@@ -37,6 +37,7 @@ if(NOT TARGET surakarta-network)
     SET(SOURCE
         src/surakarta_agent_remote.cpp
         src/surakarta_network_service.cpp
+        src/message.cpp
     )
     if(WIN32)
         set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
@@ -44,6 +45,7 @@ if(NOT TARGET surakarta-network)
     add_library(surakarta-network SHARED ${SOURCE})
     target_include_directories(surakarta-network
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/private-include
     )
     target_link_libraries(surakarta-network PUBLIC network-framework)
     target_link_libraries(surakarta-network PRIVATE surakarta)
