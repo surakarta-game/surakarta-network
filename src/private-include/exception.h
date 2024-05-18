@@ -8,7 +8,13 @@ class SurakartaNetworkException : public std::exception {};
 template <typename T>
 class SurakartaNetworkMessageParsingException : public SurakartaNetworkException {
    public:
-    char* what() const noexcept override {
-        return "Failed to parse message to type " + typeid(T).name();
+    SurakartaNetworkMessageParsingException()
+        : message_(std::string("Failed to parse message to type ") + typeid(T).name()) {}
+
+    const char* what() const noexcept override {
+        return message_.c_str();
     }
+
+   private:
+    std::string message_;
 };
