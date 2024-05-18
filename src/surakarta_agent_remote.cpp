@@ -43,7 +43,7 @@ class SurakartaAgentRemoteImpl : public SurakartaAgentBase {
             if (response.opcode == OPCODE::MOVE_OP) {
                 auto decoded = SurakartaNetworkMessageMove(response);
                 auto move = SurakartaMove(decoded.From(), decoded.To(), my_color);
-                SurakartaTemporarilyApplyMoveGuardUtil(board_, move);
+                auto guard = SurakartaTemporarilyApplyMoveGuardUtil(board_, move);
                 on_board_update_util_.UpdateAndGetTrace();
                 return move;
             } else if (response.opcode == OPCODE::END_OP) {
@@ -93,7 +93,7 @@ class SurakartaAgentRemoteFactoryImpl : public SurakartaDaemon::AgentFactory {
         if (response_optional.has_value()) {
             auto response = response_optional.value();
             if (response.opcode == OPCODE::READY_OP) {
-                my_color_ = SurakartaNetworkMessageReady(response).Color();
+                assigned_color_ = SurakartaNetworkMessageReady(response).Color();
             } else if (response.opcode == OPCODE::REJECT_OP) {
                 auto decoded = SurakartaNetworkMessageReject(response);
                 throw SurakartaNetworkRejectedException(decoded.Username(), decoded.Reason());
@@ -113,8 +113,8 @@ class SurakartaAgentRemoteFactoryImpl : public SurakartaDaemon::AgentFactory {
         std::shared_ptr<SurakartaRuleManager> rule_manager,
         SurakartaDaemon& daemon,
         PieceColor my_color) override {
-        if (this->my_color_ != my_color) {
-            throw SurakartaNetworkAgentColorMismatchException(this->my_color_, ReverseColor(my_color));
+        if (assigned_color_ != ReverseColor(my_color)) {
+            throw SurakartaNetworkAgentColorMismatchException(assigned_color_, ReverseColor(my_color));
         }
         auto agent = std::make_unique<SurakartaAgentRemoteImpl>(
             board, game_info, rule_manager, my_color, socket_);
@@ -124,14 +124,14 @@ class SurakartaAgentRemoteFactoryImpl : public SurakartaDaemon::AgentFactory {
     }
 
     PieceColor AssignedColor() const {
-        return ReverseColor(my_color_);
+        return assigned_color_;
     }
 
     SurakartaEvent<std::optional<SurakartaIllegalMoveReason>, SurakartaEndReason, PieceColor> OnGameEnded;
     SurakartaEvent<std::string, std::string> OnChatMessageArrived;
 
    private:
-    PieceColor my_color_;
+    PieceColor assigned_color_;
     std::shared_ptr<NetworkFramework::Socket> socket_;
 
     friend class SurakartaAgentRemoteImpl;

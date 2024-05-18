@@ -83,7 +83,8 @@ int play(std::string address,
             for (auto& fragment : opt_trace.value().path) {
                 SurakartaTemporarilyChangeColorGuardUtil guard1(daemon.Board(), fragment.From(), PieceColor::NONE);
                 SurakartaTemporarilyChangeColorGuardUtil guard2(daemon.Board(), fragment.To(), moved_colour);
-                std::cout << ANSI_CLEAR_SCREEN << ANSI_MOVE_TO_START;
+                // std::cout << ANSI_CLEAR_SCREEN << ANSI_MOVE_TO_START;
+                std::cout << std::endl;
                 std::cout << "B: " << (my_colour == PieceColor::BLACK ? "Mine" : "Random") << std::endl;
                 std::cout << "W: " << (my_colour == PieceColor::WHITE ? "Mine" : "Random") << std::endl;
                 std::cout << std::endl;
