@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include "surakarta_daemon.h"
 
 class SurakartaAgentRemoteFactoryImpl;

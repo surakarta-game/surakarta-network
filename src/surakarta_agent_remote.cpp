@@ -11,27 +11,7 @@ class SurakartaAgentRemoteImpl : public SurakartaAgentBase {
                              std::shared_ptr<SurakartaGameInfo> game_info,
                              std::shared_ptr<SurakartaRuleManager> rule_manager,
                              PieceColor my_color,
-                             std::shared_ptr<NetworkFramework::Socket> socket)
-        : SurakartaAgentBase(board, game_info, rule_manager),
-          my_color(my_color),
-          socket_(socket),
-          position_lists_(SurakartaInitPositionListsUtil(board).InitPositionList()),
-          on_board_update_util_(position_lists_.black_list, position_lists_.white_list, board) {
-        OnChatMessageArrived.AddListener([this](std::string username, std::string chat_message) {
-            std::lock_guard lock(mutex_);
-            if (factory_ != nullptr) {
-                factory_->OnChatMessageArrived.Invoke(username, chat_message);
-            }
-        });
-        OnGameEnded.AddListener([this](std::optional<SurakartaIllegalMoveReason> illegal_move_reason,
-                                       SurakartaEndReason end_reason,
-                                       PieceColor winner) {
-            std::lock_guard lock(mutex_);
-            if (factory_ != nullptr) {
-                factory_->OnGameEnded.Invoke(illegal_move_reason, end_reason, winner);
-            }
-        });
-    }
+                             std::shared_ptr<NetworkFramework::Socket> socket);
 
     ~SurakartaAgentRemoteImpl();
 
@@ -56,6 +36,7 @@ class SurakartaAgentRemoteImpl : public SurakartaAgentBase {
             auto message_send = SurakartaNetworkMessageMove(from, to);
             socket_->Send(message_send);
         }
+    receive:
         auto response_optional = socket_->Receive();
         if (response_optional.has_value()) {
             auto response = response_optional.value();
@@ -70,6 +51,7 @@ class SurakartaAgentRemoteImpl : public SurakartaAgentBase {
             } else if (response.opcode == OPCODE::CHAT_OP) {
                 auto decoded = SurakartaNetworkMessageChat(response);
                 OnChatMessageArrived.Invoke(decoded.Username(), decoded.ChatMessage());
+                goto receive;
             } else {
                 throw SurakartaNetworkUnexpectedMessageException(response);
             }
@@ -149,6 +131,18 @@ class SurakartaAgentRemoteFactoryImpl : public SurakartaDaemon::AgentFactory {
     std::mutex mutex_;
     SurakartaAgentRemoteImpl* agent_;
 };
+
+SurakartaAgentRemoteImpl::SurakartaAgentRemoteImpl(
+    std::shared_ptr<SurakartaBoard> board,
+    std::shared_ptr<SurakartaGameInfo> game_info,
+    std::shared_ptr<SurakartaRuleManager> rule_manager,
+    PieceColor my_color,
+    std::shared_ptr<NetworkFramework::Socket> socket)
+    : SurakartaAgentBase(board, game_info, rule_manager),
+      my_color(my_color),
+      socket_(socket),
+      position_lists_(SurakartaInitPositionListsUtil(board).InitPositionList()),
+      on_board_update_util_(position_lists_.black_list, position_lists_.white_list, board) {}
 
 SurakartaAgentRemoteImpl::~SurakartaAgentRemoteImpl() {
     std::lock_guard lock(mutex_);
