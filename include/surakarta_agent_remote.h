@@ -20,6 +20,8 @@ class SurakartaAgentRemoteFactory : public SurakartaDaemon::AgentFactory {
         int room_id,
         PieceColor requested_color = PieceColor::NONE);
 
+    PieceColor AssignedColor() const;
+
     std::unique_ptr<SurakartaAgentBase> CreateAgent(
         std::shared_ptr<SurakartaGameInfo> game_info,
         std::shared_ptr<SurakartaBoard> board,

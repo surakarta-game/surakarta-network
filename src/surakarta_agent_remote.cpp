@@ -123,6 +123,10 @@ class SurakartaAgentRemoteFactoryImpl : public SurakartaDaemon::AgentFactory {
         return agent;
     }
 
+    PieceColor AssignedColor() const {
+        return my_color_;
+    }
+
     SurakartaEvent<std::optional<SurakartaIllegalMoveReason>, SurakartaEndReason, PieceColor> OnGameEnded;
     SurakartaEvent<std::string, std::string> OnChatMessageArrived;
 
@@ -183,6 +187,10 @@ SurakartaAgentRemoteFactory::SurakartaAgentRemoteFactory(
     impl_->OnChatMessageArrived.AddListener([this](std::string username, std::string chat_message) {
         OnChatMessageArrived.Invoke(username, chat_message);
     });
+}
+
+PieceColor SurakartaAgentRemoteFactory::AssignedColor() const {
+    return impl_->AssignedColor();
 }
 
 std::unique_ptr<SurakartaAgentBase> SurakartaAgentRemoteFactory::CreateAgent(
