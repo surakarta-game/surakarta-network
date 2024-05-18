@@ -31,5 +31,5 @@ class SurakartaAgentRemoteFactory : public SurakartaDaemon::AgentFactory {
     SurakartaEvent<std::string, std::string> OnChatMessageArrived;
 
    private:
-    std::unique_ptr<SurakartaAgentRemoteFactoryImpl> impl_;
+    std::shared_ptr<SurakartaAgentRemoteFactoryImpl> impl_;
 };
