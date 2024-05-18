@@ -1,0 +1,6 @@
+[submodule "third-party/network-framework"]
+	path = third-party/network-framework
+	url = https://github.com/surakarta-game/network-framework
+[submodule "third-party/surakarta-core"]
+	path = third-party/surakarta-core
+	url = https://github.com/surakarta-game/surakarta-core
