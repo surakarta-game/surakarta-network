@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(surakarta-network)
+enable_testing()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -38,6 +39,7 @@ if(NOT TARGET surakarta-network)
         src/surakarta_agent_remote.cpp
         src/surakarta_network_service.cpp
         src/message.cpp
+        src/socket_log_wrapper.cpp
     )
     if(WIN32)
         set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
@@ -49,10 +51,26 @@ if(NOT TARGET surakarta-network)
     )
     target_link_libraries(surakarta-network PUBLIC network-framework)
     target_link_libraries(surakarta-network PRIVATE surakarta)
+    install(TARGETS surakarta-network)
 endif()
 
 if(NOT TARGET surakarta-server)
     add_executable(surakarta-server src/server.cpp)
     target_link_libraries(surakarta-server PRIVATE surakarta-network)
     target_link_libraries(surakarta-server PRIVATE surakarta)
+    install(TARGETS surakarta-server)
+endif()
+
+if(NOT TARGET surakarta-network-client)
+    add_executable(surakarta-network-client src/client.cpp)
+    target_link_libraries(surakarta-network-client PRIVATE surakarta-network)
+    target_link_libraries(surakarta-network-client PRIVATE surakarta)
+    install(TARGETS surakarta-network-client)
+endif()
+
+if(NOT TARGET surakarta-network-test)
+    add_executable(surakarta-network-test src/test.cpp)
+    target_link_libraries(surakarta-network-test PRIVATE surakarta-network)
+    target_link_libraries(surakarta-network-test PRIVATE surakarta)
+    add_test(NAME surakarta-network-test COMMAND surakarta-network-test)
 endif()

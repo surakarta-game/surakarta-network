@@ -18,7 +18,7 @@ SurakartaNetworkMessageReady::SurakartaNetworkMessageReady(const NetworkFramewor
         throw SurakartaNetworkMessageParsingException<SurakartaNetworkMessageReady>();
     }
     username_ = data1;
-    if (data2 != "BLACK" && data2 != "WHITE" && data3.empty() == false) {
+    if (data2 != "BLACK" && data2 != "WHITE" && data2.empty() == false) {
         throw SurakartaNetworkMessageParsingException<SurakartaNetworkMessageReady>();
     }
     color_ = data2.empty() ? PieceColor::NONE : data2 == "BLACK" ? PieceColor::BLACK

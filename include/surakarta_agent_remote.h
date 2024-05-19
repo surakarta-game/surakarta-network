@@ -2,6 +2,7 @@
 
 #include <optional>
 #include "surakarta_daemon.h"
+#include "surakarta_logger.h"
 
 class SurakartaAgentRemoteFactoryImpl;
 
@@ -18,7 +19,10 @@ class SurakartaAgentRemoteFactory : public SurakartaDaemon::AgentFactory {
         int port,
         std::string username,
         int room_id,
-        PieceColor requested_color = PieceColor::NONE);
+        PieceColor requested_color = PieceColor::NONE,
+        std::shared_ptr<SurakartaLogger> logger = std::make_shared<SurakartaLoggerNull>());
+
+    PieceColor AssignedColor() const;
 
     std::unique_ptr<SurakartaAgentBase> CreateAgent(
         std::shared_ptr<SurakartaGameInfo> game_info,
@@ -27,9 +31,9 @@ class SurakartaAgentRemoteFactory : public SurakartaDaemon::AgentFactory {
         SurakartaDaemon& daemon,
         PieceColor my_color) override;
 
-    SurakartaEvent<std::optional<SurakartaIllegalMoveReason>, SurakartaEndReason, PieceColor> OnGameEnded;
+    SurakartaEvent<std::optional<SurakartaIllegalMoveReason>, SurakartaEndReason, PieceColor> OnRemoteGameEnded;
     SurakartaEvent<std::string, std::string> OnChatMessageArrived;
 
    private:
-    std::unique_ptr<SurakartaAgentRemoteFactoryImpl> impl_;
+    std::shared_ptr<SurakartaAgentRemoteFactoryImpl> impl_;
 };
