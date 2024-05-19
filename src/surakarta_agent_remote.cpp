@@ -2,6 +2,7 @@
 #include "exception.h"
 #include "message.h"
 #include "network_framework.h"
+#include "socket_log_wrapper.h"
 
 class SurakartaAgentRemoteFactoryImpl;
 
@@ -16,7 +17,7 @@ class SurakartaAgentRemoteImpl : public SurakartaAgentBase {
     ~SurakartaAgentRemoteImpl();
 
     SurakartaMove CalculateMove() override {
-        if (game_ended_) {
+        if (remote_game_ended_) {
             printf(
                 "Warning: SurakartaAgentRemoteImpl::CalculateMove() is called"
                 " after the game has ended\n");
@@ -48,8 +49,8 @@ class SurakartaAgentRemoteImpl : public SurakartaAgentBase {
                 return move;
             } else if (response.opcode == OPCODE::END_OP) {
                 auto decoded = SurakartaNetworkMessageEnd(response);
-                OnGameEnded.Invoke(decoded.IllegalMoveReason(), decoded.EndReason(), my_color);
-                game_ended_ = true;
+                OnRemoteGameEnded.Invoke(decoded.IllegalMoveReason(), decoded.EndReason(), my_color);
+                remote_game_ended_ = true;
                 return SurakartaMove(SurakartaPosition(0, 0), SurakartaPosition(0, 0), my_color);
             } else if (response.opcode == OPCODE::CHAT_OP) {
                 auto decoded = SurakartaNetworkMessageChat(response);
@@ -63,11 +64,11 @@ class SurakartaAgentRemoteImpl : public SurakartaAgentBase {
         }
     }
 
-    SurakartaEvent<std::optional<SurakartaIllegalMoveReason>, SurakartaEndReason, PieceColor> OnGameEnded;
+    SurakartaEvent<std::optional<SurakartaIllegalMoveReason>, SurakartaEndReason, PieceColor> OnRemoteGameEnded;
     SurakartaEvent<std::string, std::string> OnChatMessageArrived;
 
    private:
-    bool game_ended_ = false;
+    bool remote_game_ended_ = false;
     PieceColor my_color;
     std::shared_ptr<NetworkFramework::Socket> socket_;
     SurakartaInitPositionListsUtil::PositionLists position_lists_;
@@ -85,10 +86,11 @@ class SurakartaAgentRemoteFactoryImpl : public SurakartaDaemon::AgentFactory {
         int port,
         std::string username,
         int room_id,
-        PieceColor requested_color = PieceColor::NONE) {
-        socket_ = NetworkFramework::ConnectToServer(address, port);
-        socket_->Send(
-            SurakartaNetworkMessageReady(username, requested_color, room_id));
+        PieceColor requested_color,
+        std::shared_ptr<SurakartaLogger> logger) {
+        auto raw_socket = NetworkFramework::ConnectToServer(address, port);
+        socket_ = std::make_shared<SurakartaNetworkSocketLogWrapper>(std::move(raw_socket), logger);
+        socket_->Send(SurakartaNetworkMessageReady(username, requested_color, room_id));
         auto response_optional = socket_->Receive();
         if (response_optional.has_value()) {
             auto response = response_optional.value();
@@ -120,6 +122,39 @@ class SurakartaAgentRemoteFactoryImpl : public SurakartaDaemon::AgentFactory {
             board, game_info, rule_manager, my_color, socket_);
         agent->factory_ = this;
         agent_ = agent.get();
+        agent->OnChatMessageArrived.AddListener([this](std::string username, std::string chat_message) {
+            OnChatMessageArrived.Invoke(username, chat_message);
+        });
+        agent->OnRemoteGameEnded.AddListener([this](std::optional<SurakartaIllegalMoveReason> illegal_move_reason,
+                                                    SurakartaEndReason end_reason,
+                                                    PieceColor winner) {
+            OnRemoteGameEnded.Invoke(illegal_move_reason, end_reason, winner);
+        });
+        daemon.OnGameEnded.AddListener([this](auto) {
+            std::lock_guard lock(mutex_);
+            if (agent_ && !agent_->remote_game_ended_) {
+                auto trace = agent_->on_board_update_util_.UpdateAndGetTrace();
+                if (trace.has_value() == false) {
+                    // do nothing
+                } else {
+                    auto from = trace->path[0].From();
+                    auto to = trace->path[trace->path.size() - 1].To();
+                    auto message_send = SurakartaNetworkMessageMove(from, to);
+                    socket_->Send(message_send);
+                }
+                auto response_opt = socket_->Receive();
+                if (response_opt.has_value()) {
+                    if (response_opt.value().opcode == OPCODE::END_OP) {
+                        auto decoded = SurakartaNetworkMessageEnd(response_opt.value());
+                        OnRemoteGameEnded.Invoke(decoded.IllegalMoveReason(), decoded.EndReason(), assigned_color_);
+                    } else {
+                        throw SurakartaNetworkUnexpectedMessageException(response_opt.value());
+                    }
+                } else {
+                    throw SurakartaNetworkUnexpectedEofException();
+                }
+            }
+        });
         return agent;
     }
 
@@ -127,7 +162,7 @@ class SurakartaAgentRemoteFactoryImpl : public SurakartaDaemon::AgentFactory {
         return assigned_color_;
     }
 
-    SurakartaEvent<std::optional<SurakartaIllegalMoveReason>, SurakartaEndReason, PieceColor> OnGameEnded;
+    SurakartaEvent<std::optional<SurakartaIllegalMoveReason>, SurakartaEndReason, PieceColor> OnRemoteGameEnded;
     SurakartaEvent<std::string, std::string> OnChatMessageArrived;
 
    private:
@@ -172,17 +207,19 @@ SurakartaAgentRemoteFactory::SurakartaAgentRemoteFactory(
     int port,
     std::string username,
     int room_id,
-    PieceColor requested_color)
+    PieceColor requested_color,
+    std::shared_ptr<SurakartaLogger> logger)
     : impl_(std::make_unique<SurakartaAgentRemoteFactoryImpl>(
           address,
           port,
           username,
           room_id,
-          requested_color)) {
-    impl_->OnGameEnded.AddListener([this](std::optional<SurakartaIllegalMoveReason> illegal_move_reason,
-                                          SurakartaEndReason end_reason,
-                                          PieceColor winner) {
-        OnGameEnded.Invoke(illegal_move_reason, end_reason, winner);
+          requested_color,
+          logger)) {
+    impl_->OnRemoteGameEnded.AddListener([this](std::optional<SurakartaIllegalMoveReason> illegal_move_reason,
+                                                SurakartaEndReason end_reason,
+                                                PieceColor winner) {
+        OnRemoteGameEnded.Invoke(illegal_move_reason, end_reason, winner);
     });
     impl_->OnChatMessageArrived.AddListener([this](std::string username, std::string chat_message) {
         OnChatMessageArrived.Invoke(username, chat_message);

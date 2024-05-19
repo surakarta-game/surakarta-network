@@ -37,12 +37,14 @@ int play(std::string address,
          std::string username,
          int room_number,
          PieceColor requested_color = PieceColor::NONE,
+         bool visual = false,
          int depth = SurakartaMoveWeightUtil::DefaultDepth,
          double alpha = SurakartaMoveWeightUtil::DefaultAlpha,
          double beta = SurakartaMoveWeightUtil::DefaultBeta) {
     const auto move_weight_util_factory = std::make_shared<SurakartaAgentMineFactory::SurakartaMoveWeightUtilFactory>(depth, alpha, beta);
     const auto agent_factory_mine = std::make_shared<SurakartaAgentMineFactory>(move_weight_util_factory);
-    const auto agent_factory_remote = std::make_shared<SurakartaAgentRemoteFactory>(address, port, username, room_number, requested_color);
+    const auto agent_factory_remote = std::make_shared<SurakartaAgentRemoteFactory>(
+        address, port, username, room_number, requested_color, std::make_shared<SurakartaLoggerStdout>());
     const auto my_colour = agent_factory_remote->AssignedColor();
     const auto agent_factory_black = my_colour == PieceColor::BLACK ? (std::shared_ptr<SurakartaDaemon::AgentFactory>)agent_factory_mine : agent_factory_remote;
     const auto agent_factory_white = my_colour == PieceColor::WHITE ? (std::shared_ptr<SurakartaDaemon::AgentFactory>)agent_factory_mine : agent_factory_remote;
@@ -83,12 +85,14 @@ int play(std::string address,
             for (auto& fragment : opt_trace.value().path) {
                 SurakartaTemporarilyChangeColorGuardUtil guard1(daemon.Board(), fragment.From(), PieceColor::NONE);
                 SurakartaTemporarilyChangeColorGuardUtil guard2(daemon.Board(), fragment.To(), moved_colour);
-                // std::cout << ANSI_CLEAR_SCREEN << ANSI_MOVE_TO_START;
-                std::cout << std::endl;
-                std::cout << "B: " << (my_colour == PieceColor::BLACK ? "Mine" : "Random") << std::endl;
-                std::cout << "W: " << (my_colour == PieceColor::WHITE ? "Mine" : "Random") << std::endl;
-                std::cout << std::endl;
-                std::cout << *daemon.Board() << std::endl;
+                if (visual) {
+                    // std::cout << ANSI_CLEAR_SCREEN << ANSI_MOVE_TO_START;
+                    std::cout << std::endl;
+                    std::cout << "B: " << (my_colour == PieceColor::BLACK ? "Mine" : "Random") << std::endl;
+                    std::cout << "W: " << (my_colour == PieceColor::WHITE ? "Mine" : "Random") << std::endl;
+                    std::cout << std::endl;
+                    std::cout << *daemon.Board() << std::endl;
+                }
             }
         }
     });
@@ -106,6 +110,7 @@ int main(int argc, char** argv) {
     std::string username = "user";
     int room_number = 0;
     PieceColor requested_color = PieceColor::NONE;
+    bool visual = false;
     int depth = SurakartaMoveWeightUtil::DefaultDepth;
     double alpha = SurakartaMoveWeightUtil::DefaultAlpha;
     double beta = SurakartaMoveWeightUtil::DefaultBeta;
@@ -129,18 +134,21 @@ int main(int argc, char** argv) {
             alpha = atof(argv[++i]);
         } else if (strcmp(argv[i], "--beta") == 0 || strcmp(argv[i], "-b") == 0) {
             beta = atof(argv[++i]);
+        } else if (strcmp(argv[i], "--visual") == 0 || strcmp(argv[i], "-v") == 0) {
+            visual = true;
         }
     }
     if (argc >= 3) {
         address = argv[1];
         port = atoi(argv[2]);
-        play(address, port, username, room_number, requested_color, depth, alpha, beta);
+        play(address, port, username, room_number, requested_color, visual, depth, alpha, beta);
     } else {
         std::cout << "Usage: " << argv[0] << " <address> <port> [args..]" << std::endl;
         std::cout << "Args:" << std::endl;
         std::cout << "  -u|--username <username>  The username to use, default: \"user\"" << std::endl;
         std::cout << "  -r|--room     <room>      The room number to join, default: 0" << std::endl;
         std::cout << "  -c|--color    <color>     The color to request, default: none" << std::endl;
+        std::cout << "  -v|--visual               Enable visual mode" << std::endl;
         std::cout << "  -d|--depth    <depth>     The depth of the search tree, default: " << SurakartaMoveWeightUtil::DefaultDepth << std::endl;
         std::cout << "  -a|--alpha    <alpha>     The reduce rate for being captured, default: " << SurakartaMoveWeightUtil::DefaultAlpha << std::endl;
         std::cout << "  -b|--beta     <beta>      The reduce rate for capturing, default: " << SurakartaMoveWeightUtil::DefaultBeta << std::endl;

@@ -38,6 +38,7 @@ if(NOT TARGET surakarta-network)
         src/surakarta_agent_remote.cpp
         src/surakarta_network_service.cpp
         src/message.cpp
+        src/socket_log_wrapper.cpp
     )
     if(WIN32)
         set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
