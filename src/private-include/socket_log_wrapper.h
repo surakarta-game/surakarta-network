@@ -7,7 +7,7 @@
 class SurakartaNetworkSocketLogWrapper : public NetworkFramework::Socket {
    public:
     SurakartaNetworkSocketLogWrapper(
-        std::unique_ptr<NetworkFramework::Socket> socket,
+        std::shared_ptr<NetworkFramework::Socket> socket,
         std::shared_ptr<SurakartaLogger> logger)
         : socket_(std::move(socket)), logger_(logger) {}
 
@@ -18,6 +18,6 @@ class SurakartaNetworkSocketLogWrapper : public NetworkFramework::Socket {
     int PeerPort() const override { return socket_->PeerPort(); }
 
    private:
-    std::unique_ptr<NetworkFramework::Socket> socket_;
+    std::shared_ptr<NetworkFramework::Socket> socket_;
     std::shared_ptr<SurakartaLogger> logger_;
 };

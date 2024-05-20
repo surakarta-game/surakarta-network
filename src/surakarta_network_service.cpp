@@ -4,6 +4,7 @@
 #include <thread>
 #include "message.h"
 #include "opcode.h"
+#include "socket_log_wrapper.h"
 #include "surakarta.h"
 
 struct SurakartaNetworkServiceSharedData {
@@ -49,7 +50,9 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
     void Execute(std::shared_ptr<NetworkFramework::Socket> socket) override {
         auto peer_address = socket->PeerAddress();
         auto peer_port = socket->PeerPort();
-        logger_->Log("Connection from %s:%d", peer_address.c_str(), peer_port);
+        auto logger = logger_->CreateSublogger(peer_address + ":" + std::to_string(peer_port));
+        socket = std::make_shared<SurakartaNetworkSocketLogWrapper>(std::move(socket), logger);
+        logger->Log("Connection established.");
     wait_ready_message:
         auto message_opt = socket->Receive();
         if (message_opt.has_value() == false) {
