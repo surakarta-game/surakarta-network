@@ -41,10 +41,15 @@ struct SurakartaNetworkServiceSharedData {
 
 class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
    public:
-    SurakartaNetworkServiceImpl(std::shared_ptr<SurakartaNetworkServiceSharedData> shared_data)
-        : shared_data_(shared_data) {}
+    SurakartaNetworkServiceImpl(
+        std::shared_ptr<SurakartaNetworkServiceSharedData> shared_data,
+        std::shared_ptr<SurakartaLogger> logger)
+        : shared_data_(shared_data), logger_(logger) {}
 
     void Execute(std::shared_ptr<NetworkFramework::Socket> socket) override {
+        auto peer_address = socket->PeerAddress();
+        auto peer_port = socket->PeerPort();
+        logger_->Log("Connection from %s:%d", peer_address.c_str(), peer_port);
     wait_ready_message:
         auto message_opt = socket->Receive();
         if (message_opt.has_value() == false) {
@@ -296,25 +301,27 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
     }
 
    private:
+    std::shared_ptr<SurakartaLogger> logger_;
     std::shared_ptr<SurakartaNetworkServiceSharedData> shared_data_;
 };
 
 class SurakartaNetworkServiceFactoryImpl : public NetworkFramework::ServiceFactory {
    public:
-    SurakartaNetworkServiceFactoryImpl() {
-        shared_data_ = std::make_shared<SurakartaNetworkServiceSharedData>();
-    }
+    SurakartaNetworkServiceFactoryImpl(std::shared_ptr<SurakartaLogger> logger)
+        : logger_(logger),
+          shared_data_(std::make_shared<SurakartaNetworkServiceSharedData>()) {}
 
     std::unique_ptr<NetworkFramework::Service> Create() override {
-        return std::make_unique<SurakartaNetworkServiceImpl>(shared_data_);
+        return std::make_unique<SurakartaNetworkServiceImpl>(shared_data_, logger_);
     }
 
    private:
+    std::shared_ptr<SurakartaLogger> logger_;
     std::shared_ptr<SurakartaNetworkServiceSharedData> shared_data_;
 };
 
-SurakartaNetworkServiceFactory::SurakartaNetworkServiceFactory() {
-    impl_ = std::make_unique<SurakartaNetworkServiceFactoryImpl>();
+SurakartaNetworkServiceFactory::SurakartaNetworkServiceFactory(std::shared_ptr<SurakartaLogger> logger) {
+    impl_ = std::make_unique<SurakartaNetworkServiceFactoryImpl>(logger);
 }
 
 std::unique_ptr<NetworkFramework::Service> SurakartaNetworkServiceFactory::Create() {
