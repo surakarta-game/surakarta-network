@@ -76,9 +76,11 @@ static void LogMessage(std::shared_ptr<SurakartaLogger> logger,
             logger->Log("[remote ->  local] Resign message");
     } else {
         if (sending)
-            logger->Log("[local  -> remote] Unknown message: %d \"%s\" \"%s\" \"%s\"");
+            logger->Log("[local  -> remote] Unknown message: %d \"%s\" \"%s\" \"%s\"",
+                        message.opcode, message.data1.c_str(), message.data2.c_str(), message.data3.c_str());
         else
-            logger->Log("[remote ->  local] Unknown message: %d \"%s\" \"%s\" \"%s\"");
+            logger->Log("[remote ->  local] Unknown message: %d \"%s\" \"%s\" \"%s\"",
+                        message.opcode, message.data1.c_str(), message.data2.c_str(), message.data3.c_str());
     }
 }
 
