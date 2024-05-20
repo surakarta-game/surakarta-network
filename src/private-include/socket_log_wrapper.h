@@ -14,6 +14,8 @@ class SurakartaNetworkSocketLogWrapper : public NetworkFramework::Socket {
     void Send(NetworkFramework::Message message) override;
     std::optional<NetworkFramework::Message> Receive() override;
     void Close() override { socket_->Close(); }
+    std::string PeerAddress() const override { return socket_->PeerAddress(); }
+    int PeerPort() const override { return socket_->PeerPort(); }
 
    private:
     std::unique_ptr<NetworkFramework::Socket> socket_;
