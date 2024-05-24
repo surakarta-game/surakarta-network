@@ -7,7 +7,11 @@
 #include "socket_log_wrapper.h"
 #include "surakarta.h"
 
-struct SurakartaNetworkServiceSharedData {
+class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
+   public:
+    SurakartaNetworkServiceImpl(std::shared_ptr<SurakartaLogger> logger)
+        : logger_(logger) {}
+
     enum class RoomStatus {
         EMPTY,
         WAITING_SECOND_PLAYER,
@@ -59,7 +63,7 @@ struct SurakartaNetworkServiceSharedData {
 
         void StartFailed() {
             std::lock_guard lock(mutex);
-            status = SurakartaNetworkServiceSharedData::RoomStatus::EMPTY;
+            status = RoomStatus::EMPTY;
             when_game_started_or_initialization_failed.notify_all();
         }
 
@@ -87,7 +91,7 @@ struct SurakartaNetworkServiceSharedData {
     mutable std::mutex mutex;
     std::vector<std::shared_ptr<Room>> rooms;
 
-    std::shared_ptr<SurakartaNetworkServiceSharedData::Room> GetOrCreateRoom(
+    std::shared_ptr<Room> GetOrCreateRoom(
         SurakartaNetworkMessageReady message,
         std::shared_ptr<NetworkFramework::Socket> socket_of_first_player) {
         std::lock_guard<std::mutex> lock(mutex);
@@ -96,13 +100,13 @@ struct SurakartaNetworkServiceSharedData {
                 return rooms[i];
             }
         }
-        auto room = std::make_shared<SurakartaNetworkServiceSharedData::Room>(
+        auto room = std::make_shared<Room>(
             message.RoomId(), socket_of_first_player, message);
         rooms.push_back(room);
         return room;
     }
 
-    void ShutdownAndRemoveRoom(std::shared_ptr<SurakartaNetworkServiceSharedData::Room> room,
+    void ShutdownAndRemoveRoom(std::shared_ptr<Room> room,
                                std::shared_ptr<SurakartaLogger> logger) {
         std::lock_guard<std::mutex> lock(mutex);
         auto daemon = room->daemon;
@@ -126,14 +130,6 @@ struct SurakartaNetworkServiceSharedData {
         }
         logger->Log("Room %d is closed.", room->id);
     }
-};
-
-class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
-   public:
-    SurakartaNetworkServiceImpl(
-        std::shared_ptr<SurakartaNetworkServiceSharedData> shared_data,
-        std::shared_ptr<SurakartaLogger> logger)
-        : shared_data_(shared_data), logger_(logger) {}
 
     std::optional<SurakartaNetworkMessageReady> WaitReadyMessage(std::shared_ptr<NetworkFramework::Socket> socket) {
         auto message_opt = socket->Receive();
@@ -183,8 +179,8 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                 return;
             }
             auto ready_decoded = SurakartaNetworkMessageReady(ready_message_opt.value());
-            std::shared_ptr<SurakartaNetworkServiceSharedData::Room> room =
-                shared_data_->GetOrCreateRoom(ready_decoded, socket);
+            std::shared_ptr<Room> room =
+                GetOrCreateRoom(ready_decoded, socket);
             auto room_logger = logger->CreateSublogger("room " + std::to_string(room->id));
             int result = room->WaitingIfIsFirst(room_logger);
             bool is_first_player;
@@ -192,9 +188,9 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                 // This thread is for the first player
                 is_first_player = true;
             } else if (result == 1) {
-                shared_data_->ShutdownAndRemoveRoom(room, room_logger);
+                ShutdownAndRemoveRoom(room, room_logger);
                 continue;
-            } else if (room->Status() == SurakartaNetworkServiceSharedData::RoomStatus::WAITING_SECOND_PLAYER) {
+            } else if (room->Status() == RoomStatus::WAITING_SECOND_PLAYER) {
                 // This thread is for the second player
                 // assign color
                 is_first_player = false;
@@ -267,11 +263,11 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
             });
             my_handler->OnGameEnded.AddListener([&](SurakartaMoveResponse response) {
                 std::lock_guard lock(room->mutex);
-                if (room->status == SurakartaNetworkServiceSharedData::RoomStatus::PLAYING) {
+                if (room->status == RoomStatus::PLAYING) {
                     auto message = SurakartaNetworkMessageEnd(response.GetMoveReason(), response.GetEndReason(), response.GetWinner());
                     socket->Send(message);
                     peer_socket->Send(message);
-                    room->status = SurakartaNetworkServiceSharedData::RoomStatus::ENDED;
+                    room->status = RoomStatus::ENDED;
                 }
             });
             // preparations have been done; allow agent creation
@@ -284,8 +280,8 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                     SurakartaEndReason::RESIGN,
                     ReverseColor(my_color));
                 peer_socket->Send(message);
-                room->status = SurakartaNetworkServiceSharedData::RoomStatus::CLOSED;
-                shared_data_->ShutdownAndRemoveRoom(room, room_logger);
+                room->status = RoomStatus::CLOSED;
+                ShutdownAndRemoveRoom(room, room_logger);
             };
 
             // now, the game is started
@@ -294,14 +290,14 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                 while (true) {
                     auto message_opt = socket->Receive();
                     std::lock_guard lock(room->mutex);
-                    if (room->status != SurakartaNetworkServiceSharedData::RoomStatus::PLAYING) {
-                        if (room->status == SurakartaNetworkServiceSharedData::RoomStatus::ENDED) {
+                    if (room->status != RoomStatus::PLAYING) {
+                        if (room->status == RoomStatus::ENDED) {
                             // game is ended and status is changed by daemon thread
                             //
                             // there must be one and only one thread that has flag is_exited_by_this_thread
                             // to clean the room
-                            room->status = SurakartaNetworkServiceSharedData::RoomStatus::CLOSED;
-                            shared_data_->ShutdownAndRemoveRoom(room, room_logger);
+                            room->status = RoomStatus::CLOSED;
+                            ShutdownAndRemoveRoom(room, room_logger);
                         }
                         break;
                     }
@@ -332,19 +328,18 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                     }
                 }
             } catch (...) {
-                room->status = SurakartaNetworkServiceSharedData::RoomStatus::CLOSED;
-                shared_data_->ShutdownAndRemoveRoom(room, room_logger);
+                room->status = RoomStatus::CLOSED;
+                ShutdownAndRemoveRoom(room, room_logger);
             }
         }
     }
 
    private:
-    std::shared_ptr<SurakartaNetworkServiceSharedData> shared_data_;
     std::shared_ptr<SurakartaLogger> logger_;
 };
 
 SurakartaNetworkService::SurakartaNetworkService(std::shared_ptr<SurakartaLogger> logger)
-    : impl_(std::make_shared<SurakartaNetworkServiceImpl>(std::make_shared<SurakartaNetworkServiceSharedData>(), logger)) {}
+    : impl_(std::make_shared<SurakartaNetworkServiceImpl>(logger)) {}
 
 void SurakartaNetworkService::Execute(std::shared_ptr<NetworkFramework::Socket> socket) {
     impl_->Execute(socket);
