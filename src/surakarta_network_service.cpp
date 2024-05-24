@@ -91,7 +91,7 @@ struct SurakartaNetworkServiceSharedData {
         SurakartaNetworkMessageReady message,
         std::shared_ptr<NetworkFramework::Socket> socket_of_first_player) {
         std::lock_guard<std::mutex> lock(mutex);
-        for (int i = 0; i < rooms.size(); i++) {
+        for (int i = 0; i < (int)rooms.size(); i++) {
             if (rooms[i]->id == message.RoomId()) {
                 return rooms[i];
             }
@@ -118,7 +118,7 @@ struct SurakartaNetworkServiceSharedData {
         if (room->daemon_thread)
             room->daemon_thread->join();
         // remove the room from the list
-        for (int i = 0; i < rooms.size(); i++) {
+        for (int i = 0; i < (int)rooms.size(); i++) {
             if (rooms[i]->id == room->id) {
                 rooms.erase(rooms.begin() + i);
                 break;
@@ -339,9 +339,8 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
     }
 
    private:
-    std::shared_ptr<SurakartaLogger>
-        logger_;
     std::shared_ptr<SurakartaNetworkServiceSharedData> shared_data_;
+    std::shared_ptr<SurakartaLogger> logger_;
 };
 
 SurakartaNetworkService::SurakartaNetworkService(std::shared_ptr<SurakartaLogger> logger)
