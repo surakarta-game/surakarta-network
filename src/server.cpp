@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     if (argc > 1) {
         int port = std::stoi(argv[1]);
         auto logger = std::make_shared<SurakartaLoggerStdout>();
-        NetworkFramework::Server server(std::make_shared<SurakartaNetworkServiceFactory>(), port);
+        NetworkFramework::Server server(std::make_shared<SurakartaNetworkServiceFactory>(logger), port);
         signal(SIGINT, onSignal);
 
         std::unique_lock lock(mutex);
