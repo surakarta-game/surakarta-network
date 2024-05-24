@@ -64,21 +64,21 @@ struct SurakartaNetworkServiceSharedData {
         }
 
         void StartRoom(
-            std::shared_ptr<NetworkFramework::Socket> second_player_socket,
-            PieceColor first_player_color,
-            PieceColor second_player_color,
-            std::shared_ptr<SurakartaAgentInteractiveHandler> first_player_handler,
-            std::shared_ptr<SurakartaAgentInteractiveHandler> second_player_handler,
-            std::shared_ptr<SurakartaDaemon> daemon,
-            std::shared_ptr<std::thread> daemon_thread) {
+            std::shared_ptr<NetworkFramework::Socket> _second_player_socket,
+            PieceColor _first_player_color,
+            PieceColor _second_player_color,
+            std::shared_ptr<SurakartaAgentInteractiveHandler> _first_player_handler,
+            std::shared_ptr<SurakartaAgentInteractiveHandler> _second_player_handler,
+            std::shared_ptr<SurakartaDaemon> _daemon,
+            std::shared_ptr<std::thread> _daemon_thread) {
             std::lock_guard lock(mutex);
-            this->second_player_socket = second_player_socket;
-            this->first_player_color = first_player_color;
-            this->second_player_color = second_player_color;
-            this->first_player_handler = first_player_handler;
-            this->second_player_handler = second_player_handler;
-            this->daemon = daemon;
-            this->daemon_thread = daemon_thread;
+            second_player_socket = _second_player_socket;
+            first_player_color = _first_player_color;
+            second_player_color = _second_player_color;
+            first_player_handler = _first_player_handler;
+            second_player_handler = _second_player_handler;
+            daemon = _daemon;
+            daemon_thread = _daemon_thread;
             status = RoomStatus::PLAYING;
             when_game_started_or_initialization_failed.notify_all();
         }
@@ -177,14 +177,14 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
         socket = std::make_shared<SurakartaNetworkSocketLogWrapper>(std::move(socket), logger);
         logger->Log("Connection established.");
         while (true) {
-            auto message_opt = WaitReadyMessage(socket);
-            if (message_opt.has_value() == false) {
+            auto ready_message_opt = WaitReadyMessage(socket);
+            if (ready_message_opt.has_value() == false) {
                 // disconnect
                 return;
             }
-            auto decoded = SurakartaNetworkMessageReady(message_opt.value());
+            auto ready_decoded = SurakartaNetworkMessageReady(ready_message_opt.value());
             std::shared_ptr<SurakartaNetworkServiceSharedData::Room> room =
-                shared_data_->GetOrCreateRoom(decoded, socket);
+                shared_data_->GetOrCreateRoom(ready_decoded, socket);
             auto room_logger = logger->CreateSublogger("room " + std::to_string(room->id));
             int result = room->WaitingIfIsFirst(room_logger);
             bool is_first_player;
@@ -200,12 +200,12 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                 is_first_player = false;
                 room_logger->Log("Try to join room.");
                 PieceColor first_player_requested_color = room->first_player_message.Color();
-                PieceColor second_player_requested_color = decoded.Color();
+                PieceColor second_player_requested_color = ready_decoded.Color();
                 auto resolved_colors = ResolveColor(std::make_pair(first_player_requested_color, second_player_requested_color));
                 if (resolved_colors.has_value() == false) {
                     // color conflict
                     room_logger->Log("Color conflict.");
-                    SurakartaNetworkMessageReject reject_message(decoded.Username(), "Color conflict.");
+                    SurakartaNetworkMessageReject reject_message(ready_decoded.Username(), "Color conflict.");
                     socket->Send(reject_message);
                     room->first_player_socket->Send(reject_message);
                     room->StartFailed();
@@ -241,14 +241,14 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                 room_logger->Log("Room is ready.");
                 // send ready message
                 SurakartaNetworkMessageReady first_player_ready_message(
-                    decoded.Username(), room->first_player_color, room->id);
+                    ready_decoded.Username(), room->first_player_color, room->id);
                 SurakartaNetworkMessageReady second_player_ready_message(
                     room->first_player_message.Username(), room->second_player_color, room->id);
                 room->first_player_socket->Send(first_player_ready_message);
                 socket->Send(second_player_ready_message);
             } else {
                 // This room is not available
-                SurakartaNetworkMessageReject reject_message(decoded.Username(), std::string("Room ") + std::to_string(room->id) + " is not creatable or joinable.");
+                SurakartaNetworkMessageReject reject_message(ready_decoded.Username(), std::string("Room ") + std::to_string(room->id) + " is not creatable or joinable.");
                 socket->Send(reject_message);
                 continue;
             }

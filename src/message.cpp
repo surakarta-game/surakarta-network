@@ -25,7 +25,7 @@ SurakartaNetworkMessageReady::SurakartaNetworkMessageReady(const NetworkFramewor
                                                                  : PieceColor::WHITE;
     try {
         room_id_ = std::stoi(data3);
-    } catch (std::invalid_argument& e) {
+    } catch (std::invalid_argument&) {
         throw SurakartaNetworkMessageParsingException<SurakartaNetworkMessageReady>();
     }
 }
@@ -42,14 +42,6 @@ SurakartaNetworkMessageReject::SurakartaNetworkMessageReject(const NetworkFramew
     reason_ = data2;
 }
 
-static std::string ToString(const SurakartaPosition& pos) {
-    char buffer[3];
-    buffer[0] = 'A' + pos.x;
-    buffer[1] = '1' + pos.y;
-    buffer[2] = '\0';
-    return std::string(buffer);
-}
-
 static SurakartaPosition ToPosition(const std::string& str) {
     if (str.size() != 2) {
         throw SurakartaNetworkMessageParsingException<SurakartaNetworkMessageMove>();
@@ -62,8 +54,19 @@ static SurakartaPosition ToPosition(const std::string& str) {
     return SurakartaPosition(x, y);
 }
 
+static std::string SurakartaNetworkMessageMove_ToString(const SurakartaPosition& pos) {
+    if (pos.x < 0 || pos.x >= BOARD_SIZE || pos.y < 0 || pos.y >= BOARD_SIZE) {
+        throw SurakartaNetworkMessageParsingException<SurakartaNetworkMessageMove>();
+    }
+    char buffer[3];
+    buffer[0] = 'A' + (char)pos.x;
+    buffer[1] = '1' + (char)pos.y;
+    buffer[2] = '\0';
+    return std::string(buffer);
+}
+
 SurakartaNetworkMessageMove::SurakartaNetworkMessageMove(const SurakartaPosition& from, const SurakartaPosition& to)
-    : NetworkFramework::Message(OPCODE::MOVE_OP, ToString(from), ToString(to)), from_(from), to_(to) {}
+    : NetworkFramework::Message(OPCODE::MOVE_OP, SurakartaNetworkMessageMove_ToString(from), SurakartaNetworkMessageMove_ToString(to)), from_(from), to_(to) {}
 
 SurakartaNetworkMessageMove::SurakartaNetworkMessageMove(const NetworkFramework::Message& message)
     : NetworkFramework::Message(message) {
@@ -107,18 +110,18 @@ SurakartaNetworkMessageEnd::SurakartaNetworkMessageEnd(const NetworkFramework::M
     } else {
         try {
             illegal_move_reason_ = static_cast<SurakartaIllegalMoveReason>(std::stoi(data1));
-        } catch (std::invalid_argument& e) {
+        } catch (std::invalid_argument&) {
             throw SurakartaNetworkMessageParsingException<SurakartaNetworkMessageEnd>();
         }
     }
     try {
         end_reason_ = static_cast<SurakartaEndReason>(std::stoi(data2));
-    } catch (std::invalid_argument& e) {
+    } catch (std::invalid_argument&) {
         throw SurakartaNetworkMessageParsingException<SurakartaNetworkMessageEnd>();
     }
     try {
         winner_ = static_cast<PieceColor>(std::stoi(data3));
-    } catch (std::invalid_argument& e) {
+    } catch (std::invalid_argument&) {
         throw SurakartaNetworkMessageParsingException<SurakartaNetworkMessageEnd>();
     }
 }
