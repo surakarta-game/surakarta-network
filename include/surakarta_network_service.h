@@ -12,6 +12,9 @@ class SurakartaNetworkService : public NetworkFramework::Service {
 
     void Execute(std::shared_ptr<NetworkFramework::Socket> socket) override;
 
+    /// @brief This method should be called manually before server shutdown.
+    void ShutdownService();
+
    private:
     std::shared_ptr<SurakartaNetworkServiceImpl> impl_;
 };

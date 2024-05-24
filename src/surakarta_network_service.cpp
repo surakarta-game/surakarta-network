@@ -18,6 +18,7 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
         PLAYING,
         ENDED,
         CLOSED,
+        REMOVED,
     };
 
     struct Room {
@@ -107,8 +108,14 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
     }
 
     void ShutdownAndRemoveRoom(std::shared_ptr<Room> room,
-                               std::shared_ptr<SurakartaLogger> logger) {
-        std::lock_guard<std::mutex> lock(mutex);
+                               std::shared_ptr<SurakartaLogger> logger,
+                               bool lock_room_list = true) {
+        if (room->status == RoomStatus::REMOVED)
+            return;
+        std::unique_ptr<std::lock_guard<std::mutex>> lock_guard;
+        if (lock_room_list) {
+            lock_guard = std::make_unique<std::lock_guard<std::mutex>>(mutex);
+        }
         auto daemon = room->daemon;
         if (daemon && daemon->Status() != SurakartaDaemon::ExecuteStatus::ENDED) {
             if (daemon->Status() == SurakartaDaemon::ExecuteStatus::WAITING_FOR_BLACK_AGENT) {
@@ -121,6 +128,9 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
         }
         if (room->daemon_thread)
             room->daemon_thread->join();
+        if (room->status == RoomStatus::WAITING_SECOND_PLAYER) {
+            room->StartFailed();
+        }
         // remove the room from the list
         for (int i = 0; i < (int)rooms.size(); i++) {
             if (rooms[i]->id == room->id) {
@@ -128,6 +138,7 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                 break;
             }
         }
+        room->status = RoomStatus::REMOVED;
         logger->Log("Room %d is closed.", room->id);
     }
 
@@ -334,6 +345,13 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
         }
     }
 
+    void ShutdownService() {
+        std::lock_guard<std::mutex> lock(mutex);
+        for (auto room : rooms) {
+            ShutdownAndRemoveRoom(room, logger_, false);
+        }
+    }
+
    private:
     std::shared_ptr<SurakartaLogger> logger_;
 };
@@ -343,4 +361,8 @@ SurakartaNetworkService::SurakartaNetworkService(std::shared_ptr<SurakartaLogger
 
 void SurakartaNetworkService::Execute(std::shared_ptr<NetworkFramework::Socket> socket) {
     impl_->Execute(socket);
+}
+
+void SurakartaNetworkService::ShutdownService() {
+    impl_->ShutdownService();
 }
