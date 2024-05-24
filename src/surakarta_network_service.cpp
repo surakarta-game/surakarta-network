@@ -344,25 +344,9 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
     std::shared_ptr<SurakartaNetworkServiceSharedData> shared_data_;
 };
 
-class SurakartaNetworkServiceFactoryImpl : public NetworkFramework::ServiceFactory {
-   public:
-    SurakartaNetworkServiceFactoryImpl(std::shared_ptr<SurakartaLogger> logger)
-        : logger_(logger),
-          shared_data_(std::make_shared<SurakartaNetworkServiceSharedData>()) {}
+SurakartaNetworkService::SurakartaNetworkService(std::shared_ptr<SurakartaLogger> logger)
+    : impl_(std::make_shared<SurakartaNetworkServiceImpl>(std::make_shared<SurakartaNetworkServiceSharedData>(), logger)) {}
 
-    std::unique_ptr<NetworkFramework::Service> Create() override {
-        return std::make_unique<SurakartaNetworkServiceImpl>(shared_data_, logger_);
-    }
-
-   private:
-    std::shared_ptr<SurakartaLogger> logger_;
-    std::shared_ptr<SurakartaNetworkServiceSharedData> shared_data_;
-};
-
-SurakartaNetworkServiceFactory::SurakartaNetworkServiceFactory(std::shared_ptr<SurakartaLogger> logger) {
-    impl_ = std::make_unique<SurakartaNetworkServiceFactoryImpl>(logger);
-}
-
-std::unique_ptr<NetworkFramework::Service> SurakartaNetworkServiceFactory::Create() {
-    return impl_->Create();
+void SurakartaNetworkService::Execute(std::shared_ptr<NetworkFramework::Socket> socket) {
+    impl_->Execute(socket);
 }

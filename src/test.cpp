@@ -5,7 +5,7 @@
 int main() {
     constexpr int port = 6666;
     auto logger = std::make_shared<SurakartaLoggerStdout>();
-    NetworkFramework::Server server(std::make_shared<SurakartaNetworkServiceFactory>(logger->CreateSublogger("server ")), port);
+    NetworkFramework::Server server(std::make_unique<SurakartaNetworkService>(logger->CreateSublogger("server ")), port);
     auto client_thread_1 = std::thread([port, logger]() {
         play("127.0.0.1", port, "user1", 0, PieceColor::NONE, logger->CreateSublogger("client1"));
     });
