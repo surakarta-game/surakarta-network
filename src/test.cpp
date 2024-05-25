@@ -37,6 +37,17 @@ int main() {
         logger->CreateSublogger("client5"));
     socket5->Send(SurakartaNetworkMessageReady("user5", PieceColor::NONE, 1));
 
+    // Test implicit resign
+    auto socket6 = std::make_shared<SurakartaNetworkSocketLogWrapper>(
+        NetworkFramework::ConnectToServer("localhost", PORT),
+        logger->CreateSublogger("client6"));
+    socket6->Send(SurakartaNetworkMessageReady("user6", PieceColor::NONE, 2));
+    auto socket7 = std::make_shared<SurakartaNetworkSocketLogWrapper>(
+        NetworkFramework::ConnectToServer("localhost", PORT),
+        logger->CreateSublogger("client7"));
+    socket7->Send(SurakartaNetworkMessageReady("user7", PieceColor::NONE, 2));
+    socket6->Close();
+
     std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for server to process the message
     service->ShutdownService();
     server.Shutdown();
