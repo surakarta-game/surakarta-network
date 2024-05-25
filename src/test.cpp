@@ -22,10 +22,21 @@ int main() {
     client_thread_2.join();
 
     // Test game not started
-    auto socket = std::make_shared<SurakartaNetworkSocketLogWrapper>(
+    auto socket3 = std::make_shared<SurakartaNetworkSocketLogWrapper>(
         NetworkFramework::ConnectToServer("localhost", PORT),
         logger->CreateSublogger("client3"));
-    socket->Send(SurakartaNetworkMessageReady("user3", PieceColor::NONE, 0));
+    socket3->Send(SurakartaNetworkMessageReady("user3", PieceColor::NONE, 0));
+
+    // Test game started yet not ended
+    auto socket4 = std::make_shared<SurakartaNetworkSocketLogWrapper>(
+        NetworkFramework::ConnectToServer("localhost", PORT),
+        logger->CreateSublogger("client4"));
+    socket4->Send(SurakartaNetworkMessageReady("user4", PieceColor::NONE, 1));
+    auto socket5 = std::make_shared<SurakartaNetworkSocketLogWrapper>(
+        NetworkFramework::ConnectToServer("localhost", PORT),
+        logger->CreateSublogger("client5"));
+    socket5->Send(SurakartaNetworkMessageReady("user5", PieceColor::NONE, 1));
+
     std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for server to process the message
     service->ShutdownService();
     server.Shutdown();
