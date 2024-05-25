@@ -126,7 +126,7 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                     ->CommitMoveRaw(SurakartaMove(0, 0, 0, 0, PieceColor::WHITE));
             }
         }
-        if (room->daemon_thread)
+        if (room->daemon_thread && room->daemon_thread->joinable())
             room->daemon_thread->join();
         if (room->status == RoomStatus::WAITING_SECOND_PLAYER) {
             room->StartFailed();
