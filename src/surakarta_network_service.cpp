@@ -295,7 +295,6 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                     // there must be one and only one thread that has flag is_exited_by_this_thread
                     // to clean the room
                     {
-                        std::lock_guard lock(room->mutex);
                         room->status = RoomStatus::CLOSED;
                     }
                     ShutdownAndRemoveRoom(room, room_logger);
