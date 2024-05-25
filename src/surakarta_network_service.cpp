@@ -347,8 +347,8 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
 
     void ShutdownService() {
         std::lock_guard<std::mutex> lock(mutex);
-        for (auto room : rooms) {
-            ShutdownAndRemoveRoom(room, logger_, false);
+        while (rooms.empty() == false) {
+            ShutdownAndRemoveRoom(rooms[0], logger_, false);
         }
     }
 
