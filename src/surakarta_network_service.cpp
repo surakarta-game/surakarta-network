@@ -232,9 +232,9 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                     first_player_color == PieceColor::WHITE ? first_player_handler->GetAgentFactory()
                                                             : second_player_handler->GetAgentFactory());
                 // start the daemon
-                auto daemon_thread = std::make_shared<std::thread>([&] {
+                auto daemon_thread = std::make_shared<std::thread>([daemon, logger] {
                     try {
-                        room->daemon->Execute();
+                        daemon->Execute();
                     } catch (const std::exception& e) {
                         logger->Log("Daemon thread failed: %s", e.what());
                     } catch (...) {
