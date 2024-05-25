@@ -2,6 +2,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+#include "exception_as_eof_wrapper.h"
 #include "message.h"
 #include "opcode.h"
 #include "socket_log_wrapper.h"
@@ -194,6 +195,7 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
         auto logger = logger_->CreateSublogger(peer_address + ":" + std::to_string(peer_port));
         try {
             socket = std::make_shared<SurakartaNetworkSocketLogWrapper>(std::move(socket), logger);
+            socket = std::make_shared<SurakartaExceptionAsEofWrapper>(std::move(socket));
             logger->Log("Connection established.");
             auto message_remained_in_last_loop = std::optional<NetworkFramework::Message>();
             while (true) {
