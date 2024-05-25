@@ -108,38 +108,45 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
     }
 
     void ShutdownAndRemoveRoom(std::shared_ptr<Room> room,
-                               std::shared_ptr<SurakartaLogger> logger,
-                               bool lock_room_list = true) {
+                               std::shared_ptr<SurakartaLogger> logger) {
         if (room->status == RoomStatus::REMOVED)
             return;
-        std::unique_ptr<std::lock_guard<std::mutex>> lock_guard;
-        if (lock_room_list) {
-            lock_guard = std::make_unique<std::lock_guard<std::mutex>>(mutex);
-        }
         auto daemon = room->daemon;
-        if (daemon && daemon->Status() != SurakartaDaemon::ExecuteStatus::ENDED) {
-            if (daemon->Status() == SurakartaDaemon::ExecuteStatus::WAITING_FOR_BLACK_AGENT) {
-                (room->first_player_color == PieceColor::BLACK ? room->first_player_handler : room->second_player_handler)
-                    ->CommitMoveRaw(SurakartaMove(0, 0, 0, 0, PieceColor::BLACK));
-            } else if (daemon->Status() == SurakartaDaemon::ExecuteStatus::WAITING_FOR_WHITE_AGENT) {
-                (room->first_player_color == PieceColor::WHITE ? room->first_player_handler : room->second_player_handler)
-                    ->CommitMoveRaw(SurakartaMove(0, 0, 0, 0, PieceColor::WHITE));
+        if (daemon) {
+            daemon->OnGameEnded.RemoveListeners();
+            daemon->OnUpdateBoard.RemoveListeners();
+            while (daemon->Status() != SurakartaDaemon::ExecuteStatus::ENDED) {
+                try {
+                    if (daemon->Status() == SurakartaDaemon::ExecuteStatus::WAITING_FOR_BLACK_AGENT) {
+                        (room->first_player_color == PieceColor::BLACK ? room->first_player_handler : room->second_player_handler)
+                            ->CommitMoveRaw(SurakartaMove(0, 0, 0, 0, PieceColor::BLACK));
+                    } else if (daemon->Status() == SurakartaDaemon::ExecuteStatus::WAITING_FOR_WHITE_AGENT) {
+                        (room->first_player_color == PieceColor::WHITE ? room->first_player_handler : room->second_player_handler)
+                            ->CommitMoveRaw(SurakartaMove(0, 0, 0, 0, PieceColor::WHITE));
+                    }
+                } catch (...) {
+                    // ignore
+                }
             }
         }
-        if (room->daemon_thread && room->daemon_thread->joinable())
+        if (room->daemon_thread && room->daemon_thread->joinable()) {
             room->daemon_thread->join();
+        }
         if (room->status == RoomStatus::WAITING_SECOND_PLAYER) {
             room->StartFailed();
         }
-        // remove the room from the list
-        for (int i = 0; i < (int)rooms.size(); i++) {
-            if (rooms[i]->id == room->id) {
-                rooms.erase(rooms.begin() + i);
-                break;
+        {
+            std::lock_guard lock(mutex);
+            // remove the room from the list
+            for (int i = 0; i < (int)rooms.size(); i++) {
+                if (rooms[i]->id == room->id) {
+                    rooms.erase(rooms.begin() + i);
+                    logger->Log("Room %d is closed.", room->id);
+                    break;
+                }
             }
+            room->status = RoomStatus::REMOVED;
         }
-        room->status = RoomStatus::REMOVED;
-        logger->Log("Room %d is closed.", room->id);
     }
 
     std::optional<SurakartaNetworkMessageReady> WaitReadyMessage(std::shared_ptr<NetworkFramework::Socket> socket) {
@@ -291,7 +298,10 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                     SurakartaEndReason::RESIGN,
                     ReverseColor(my_color));
                 peer_socket->Send(message);
-                room->status = RoomStatus::CLOSED;
+                {
+                    std::lock_guard lock(room->mutex);
+                    room->status = RoomStatus::CLOSED;
+                }
                 ShutdownAndRemoveRoom(room, room_logger);
             };
 
@@ -300,16 +310,19 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                 room_logger->Log("Listen loop is started.");
                 while (true) {
                     auto message_opt = socket->Receive();
-                    std::lock_guard lock(room->mutex);
-                    if (room->status != RoomStatus::PLAYING) {
-                        if (room->status == RoomStatus::ENDED) {
-                            // game is ended and status is changed by daemon thread
-                            //
-                            // there must be one and only one thread that has flag is_exited_by_this_thread
-                            // to clean the room
+                    if (room->status == RoomStatus::ENDED) {
+                        // game is ended and status is changed by daemon thread
+                        //
+                        // there must be one and only one thread that has flag is_exited_by_this_thread
+                        // to clean the room
+                        {
+                            std::lock_guard lock(room->mutex);
                             room->status = RoomStatus::CLOSED;
-                            ShutdownAndRemoveRoom(room, room_logger);
                         }
+                        ShutdownAndRemoveRoom(room, room_logger);
+                        break;
+                    }
+                    if (room->status == RoomStatus::CLOSED) {
                         break;
                     }
                     if (message_opt.has_value() == false) {
@@ -346,9 +359,8 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
     }
 
     void ShutdownService() {
-        std::lock_guard<std::mutex> lock(mutex);
         while (rooms.empty() == false) {
-            ShutdownAndRemoveRoom(rooms[0], logger_, false);
+            ShutdownAndRemoveRoom(rooms[0], logger_);
         }
     }
 
