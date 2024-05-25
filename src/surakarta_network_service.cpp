@@ -149,8 +149,12 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
         }
     }
 
-    std::optional<SurakartaNetworkMessageReady> WaitReadyMessage(std::shared_ptr<NetworkFramework::Socket> socket) {
-        auto message_opt = socket->Receive();
+    std::optional<SurakartaNetworkMessageReady> WaitReadyMessage(
+        std::shared_ptr<NetworkFramework::Socket> socket,
+        std::optional<NetworkFramework::Message> message_remained_in_last_loop) {
+        auto message_opt = message_remained_in_last_loop.has_value()
+                               ? message_remained_in_last_loop
+                               : socket->Receive();
         while (true) {
             if (message_opt.has_value() == false) {
                 // disconnect
@@ -190,8 +194,9 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
         auto logger = logger_->CreateSublogger(peer_address + ":" + std::to_string(peer_port));
         socket = std::make_shared<SurakartaNetworkSocketLogWrapper>(std::move(socket), logger);
         logger->Log("Connection established.");
+        auto message_remained_in_last_loop = std::optional<NetworkFramework::Message>();
         while (true) {
-            auto ready_message_opt = WaitReadyMessage(socket);
+            auto ready_message_opt = WaitReadyMessage(socket, message_remained_in_last_loop);
             if (ready_message_opt.has_value() == false) {
                 // disconnect
                 return;
@@ -253,13 +258,6 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                     first_player_handler, second_player_handler,
                     daemon, daemon_thread);
                 room_logger->Log("Room is ready.");
-                // send ready message
-                SurakartaNetworkMessageReady first_player_ready_message(
-                    ready_decoded.Username(), room->first_player_color, room->id);
-                SurakartaNetworkMessageReady second_player_ready_message(
-                    room->first_player_message.Username(), room->second_player_color, room->id);
-                room->first_player_socket->Send(first_player_ready_message);
-                socket->Send(second_player_ready_message);
             } else {
                 // This room is not available
                 SurakartaNetworkMessageReject reject_message(ready_decoded.Username(), std::string("Room ") + std::to_string(room->id) + " is not creatable or joinable.");
@@ -288,15 +286,41 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                     room->status = RoomStatus::ENDED;
                 }
             });
+            // check room status
+            {
+                std::lock_guard lock(room->mutex);
+                if (room->status == RoomStatus::ENDED) {
+                    // game is ended and status is changed by daemon thread
+                    //
+                    // there must be one and only one thread that has flag is_exited_by_this_thread
+                    // to clean the room
+                    {
+                        std::lock_guard lock(room->mutex);
+                        room->status = RoomStatus::CLOSED;
+                    }
+                    ShutdownAndRemoveRoom(room, room_logger);
+                    continue;
+                }
+                if (room->status == RoomStatus::CLOSED) {
+                    continue;
+                }
+            }
+            // send ready message
+            SurakartaNetworkMessageReady ready_message(
+                ready_decoded.Username(), my_color, room->id);
+            socket->Send(ready_message);
             // preparations have been done; allow agent creation
             my_handler->UnblockAgentCreation();
 
-            auto Resign = [&]() {
+            auto Resign = [&](bool do_not_send_to_this_socket = false) {
                 // connection has been unexpectedly closed
                 SurakartaNetworkMessageEnd message(
                     std::nullopt,
                     SurakartaEndReason::RESIGN,
                     ReverseColor(my_color));
+                if (!do_not_send_to_this_socket) {
+                    // socket->Send(message);
+                }
                 peer_socket->Send(message);
                 {
                     std::lock_guard lock(room->mutex);
@@ -310,20 +334,20 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                 room_logger->Log("Listen loop is started.");
                 while (true) {
                     auto message_opt = socket->Receive();
-                    if (room->status == RoomStatus::ENDED) {
-                        // game is ended and status is changed by daemon thread
-                        //
-                        // there must be one and only one thread that has flag is_exited_by_this_thread
-                        // to clean the room
-                        {
-                            std::lock_guard lock(room->mutex);
-                            room->status = RoomStatus::CLOSED;
+                    {
+                        std::lock_guard lock(room->mutex);
+                        if (room->status != RoomStatus::PLAYING) {
+                            if (room->status == RoomStatus::ENDED) {
+                                // game is ended and status is changed by daemon thread
+                                //
+                                // there must be one and only one thread that has flag is_exited_by_this_thread
+                                // to clean the room
+                                room->status = RoomStatus::CLOSED;
+                                ShutdownAndRemoveRoom(room, room_logger);
+                            }
+                            message_remained_in_last_loop = message_opt;
+                            break;
                         }
-                        ShutdownAndRemoveRoom(room, room_logger);
-                        break;
-                    }
-                    if (room->status == RoomStatus::CLOSED) {
-                        break;
                     }
                     if (message_opt.has_value() == false) {
                         Resign();

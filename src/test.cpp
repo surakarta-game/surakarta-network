@@ -6,6 +6,12 @@
 
 #define PORT 6666
 
+void Assert(bool condition) {
+    if (!condition) {
+        throw std::runtime_error("Assertion failed");
+    }
+}
+
 int main() {
     auto logger = std::make_shared<SurakartaLoggerStdout>();
     auto service = std::make_shared<SurakartaNetworkService>(logger->CreateSublogger("server "));
@@ -41,12 +47,20 @@ int main() {
     auto socket6 = std::make_shared<SurakartaNetworkSocketLogWrapper>(
         NetworkFramework::ConnectToServer("localhost", PORT),
         logger->CreateSublogger("client6"));
-    socket6->Send(SurakartaNetworkMessageReady("user6", PieceColor::NONE, 2));
+    socket6->Send(SurakartaNetworkMessageReady("user6", PieceColor::BLACK, 2));
     auto socket7 = std::make_shared<SurakartaNetworkSocketLogWrapper>(
         NetworkFramework::ConnectToServer("localhost", PORT),
         logger->CreateSublogger("client7"));
-    socket7->Send(SurakartaNetworkMessageReady("user7", PieceColor::NONE, 2));
+    socket7->Send(SurakartaNetworkMessageReady("user7", PieceColor::WHITE, 2));
     socket6->Close();
+    Assert(socket7->Receive().value() == SurakartaNetworkMessageReady(
+                                             "user7",
+                                             PieceColor::WHITE,
+                                             2));
+    Assert(socket7->Receive().value() == SurakartaNetworkMessageEnd(
+                                             std::nullopt,
+                                             SurakartaEndReason::RESIGN,
+                                             PieceColor::WHITE));
 
     std::this_thread::sleep_for(std::chrono::seconds(1));  // Wait for server to process the message
     service->ShutdownService();
