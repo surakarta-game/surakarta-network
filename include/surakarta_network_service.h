@@ -3,14 +3,18 @@
 #include "service.h"
 #include "surakarta_logger.h"
 
-class SurakartaNetworkServiceFactoryImpl;
+class SurakartaNetworkServiceImpl;
 
-class SurakartaNetworkServiceFactory : public NetworkFramework::ServiceFactory {
+class SurakartaNetworkService : public NetworkFramework::Service {
    public:
-    SurakartaNetworkServiceFactory(
+    SurakartaNetworkService(
         std::shared_ptr<SurakartaLogger> logger = std::make_shared<SurakartaLoggerNull>());
-    std::unique_ptr<NetworkFramework::Service> Create() override;
+
+    void Execute(std::shared_ptr<NetworkFramework::Socket> socket) override;
+
+    /// @brief This method should be called manually before server shutdown.
+    void ShutdownService();
 
    private:
-    std::shared_ptr<SurakartaNetworkServiceFactoryImpl> impl_;
+    std::shared_ptr<SurakartaNetworkServiceImpl> impl_;
 };

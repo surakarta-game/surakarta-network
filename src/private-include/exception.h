@@ -93,6 +93,14 @@ class SurakartaNetworkAgentColorMismatchException : public SurakartaNetworkExcep
         return message_.c_str();
     }
 
+    PieceColor NetworkColor() const {
+        return network_color_;
+    }
+
+    PieceColor AgentColor() const {
+        return agent_color_;
+    }
+
    private:
     std::string message_;
     PieceColor network_color_;
