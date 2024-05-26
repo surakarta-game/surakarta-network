@@ -189,7 +189,7 @@ SurakartaAgentRemoteImpl::SurakartaAgentRemoteImpl(
 SurakartaAgentRemoteImpl::~SurakartaAgentRemoteImpl() {
     std::lock_guard lock(mutex_);
     if (factory_ != nullptr) {
-        std::lock_guard lock(factory_->mutex_);
+        std::lock_guard lock2(factory_->mutex_);
         factory_->agent_ = nullptr;
     }
 }
@@ -197,7 +197,7 @@ SurakartaAgentRemoteImpl::~SurakartaAgentRemoteImpl() {
 SurakartaAgentRemoteFactoryImpl::~SurakartaAgentRemoteFactoryImpl() {
     std::lock_guard lock(mutex_);
     if (agent_ != nullptr) {
-        std::lock_guard lock(agent_->mutex_);
+        std::lock_guard lock2(agent_->mutex_);
         agent_->factory_ = nullptr;
     }
 }
