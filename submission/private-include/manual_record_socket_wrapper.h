@@ -55,6 +55,9 @@ class SurakartaManualRecordSocketWrapper : public NetworkFramework::Socket {
             }
         }
         std::ofstream manual_file(manual_path_, std::ios::out | std::ios::ate);
+        if (manual_file.fail()) {
+            printf("Failed to open manual file: %s\n", manual_path_.c_str());
+        }
         manual_file << manual_;
         manual_file.close();
     }
