@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
     auto path = std::filesystem::current_path() / "record" / "server";
     std::filesystem::create_directory(std::filesystem::current_path() / "record");
     std::filesystem::create_directory(std::filesystem::current_path() / "record" / "server");
-    auto run_log_path = path / ("Team_3_" + std::to_string(GlobalRandomGenerator::getInstance()()) + ".log");
+    auto run_log_path = (path / ("Team_3_" + std::to_string(GlobalRandomGenerator::getInstance()()) + ".log")).string();
 
     std::mutex mutex;
     std::unique_lock lock(mutex);
@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
             inner_server_port,
             [&](auto socket) {
                 return std::make_shared<OnClosedSocketWrapper>(
-                    std::make_shared<SurakartaManualRecordSocketWrapper>(socket, path / "Team_3.txt", PieceColor::BLACK),
+                    std::make_shared<SurakartaManualRecordSocketWrapper>(socket, (path / "Team_3.txt").string(), PieceColor::BLACK),
                     [&]() {
                         std::unique_lock lock(mutex);
                         closed_count++;

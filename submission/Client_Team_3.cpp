@@ -25,13 +25,13 @@ int main(int argc, char* argv[]) {
     auto path = std::filesystem::current_path() / "record" / "client";
     std::filesystem::create_directory(std::filesystem::current_path() / "record");
     std::filesystem::create_directory(std::filesystem::current_path() / "record" / "client");
-    auto run_log_path = path / ("Team_3_" + std::to_string(GlobalRandomGenerator::getInstance()()) + ".log");
+    auto run_log_path = (path / ("Team_3_" + std::to_string(GlobalRandomGenerator::getInstance()()) + ".log")).string();
     auto reverse_proxy_server = NetworkFramework::Server(
         std::make_shared<ReverseProxyService>(
             server_address,
             server_port,
             [path](auto socket) {
-                return std::make_shared<SurakartaManualRecordSocketWrapper>(socket, path / "Team_3.txt", PieceColor::BLACK);
+                return std::make_shared<SurakartaManualRecordSocketWrapper>(socket, (path / "Team_3.txt").string(), PieceColor::BLACK);
             }),
         reverse_proxy_port);
     play(
