@@ -54,8 +54,8 @@ class SurakartaManualRecordSocketWrapper : public NetworkFramework::Socket {
                 is_manual_enabled_ = false;
             }
         }
-        std::fstream manual_file;
-        manual_file.open(manual_path_, std::ios::out);
+        std::ofstream manual_file;
+        manual_file.open(manual_path_);
         manual_file << manual_;
         manual_file.close();
     }
