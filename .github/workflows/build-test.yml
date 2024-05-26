@@ -85,6 +85,8 @@ jobs:
         cp ${{github.workspace}}/build/bin/Release/surakarta-network-client.exe ${{github.workspace}}\build\windows-release\
         cp ${{github.workspace}}/build/bin/Release/surakarta-network-test.exe ${{github.workspace}}\build\windows-release\
         cp ${{github.workspace}}/build/bin/Release/surakarta-server.exe ${{github.workspace}}\build\windows-release\
+        cp ${{github.workspace}}/build/bin/Release/surakarta-submission-server.exe ${{github.workspace}}\build\windows-release\
+        cp ${{github.workspace}}/build/bin/Release/surakarta-submission-client.exe ${{github.workspace}}\build\windows-release\
         ls
         Compress-Archive -Path ${{github.workspace}}\build\windows-release\ -DestinationPath ${{github.workspace}}\build\windows-release.zip
 
