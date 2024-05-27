@@ -35,6 +35,7 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
         std::shared_ptr<SurakartaAgentInteractiveHandler> first_player_handler;
         std::shared_ptr<SurakartaAgentInteractiveHandler> second_player_handler;
         PieceColor first_player_color, second_player_color;
+        std::string first_player_username, second_player_username;
 
         Room(int id,
              std::shared_ptr<NetworkFramework::Socket> first_player_socket,
@@ -73,6 +74,8 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
             std::shared_ptr<NetworkFramework::Socket> _second_player_socket,
             PieceColor _first_player_color,
             PieceColor _second_player_color,
+            std::string _first_player_username,
+            std::string _second_player_username,
             std::shared_ptr<SurakartaAgentInteractiveHandler> _first_player_handler,
             std::shared_ptr<SurakartaAgentInteractiveHandler> _second_player_handler,
             std::shared_ptr<SurakartaDaemon> _daemon,
@@ -81,6 +84,8 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
             second_player_socket = _second_player_socket;
             first_player_color = _first_player_color;
             second_player_color = _second_player_color;
+            first_player_username = _first_player_username;
+            second_player_username = _second_player_username;
             first_player_handler = _first_player_handler;
             second_player_handler = _second_player_handler;
             daemon = _daemon;
@@ -258,6 +263,7 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                     });
                     room->StartRoom(
                         socket, first_player_color, second_player_color,
+                        room->first_player_message.Username(), ready_decoded.Username(),
                         first_player_handler, second_player_handler,
                         daemon, daemon_thread);
                     room_logger->Log("Room is ready.");
@@ -272,6 +278,7 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                 const auto my_color = is_first_player ? first_player_color : second_player_color;
                 auto my_handler = is_first_player ? room->first_player_handler : room->second_player_handler;
                 auto peer_socket = is_first_player ? room->second_player_socket : room->first_player_socket;
+                auto peer_username = is_first_player ? room->second_player_username : room->first_player_username;
                 my_handler->OnMoveCommitted.AddListener([my_color, socket, logger](SurakartaMoveTrace trace) {
                     if (trace.color == ReverseColor(my_color)) {
                         auto from = trace.path[0].From();
@@ -309,7 +316,7 @@ class SurakartaNetworkServiceImpl : public NetworkFramework::Service {
                 }
                 // send ready message
                 SurakartaNetworkMessageReady ready_message(
-                    ready_decoded.Username(), my_color, room->id);
+                    peer_username, my_color, room->id);
                 socket->Send(ready_message);
                 // preparations have been done; allow agent creation
                 my_handler->UnblockAgentCreation();
