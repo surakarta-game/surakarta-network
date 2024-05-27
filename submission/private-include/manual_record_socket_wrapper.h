@@ -10,7 +10,13 @@ class SurakartaManualRecordSocketWrapper : public NetworkFramework::Socket {
         std::shared_ptr<NetworkFramework::Socket> socket,
         std::string manual_path,
         PieceColor only_manual_color = PieceColor::NONE)
-        : manual_path_(manual_path), socket_(socket), only_manual_color_(only_manual_color) {}
+        : socket_(socket), only_manual_color_(only_manual_color) {
+        manual_file.open(manual_path);
+    }
+
+    ~SurakartaManualRecordSocketWrapper() {
+        manual_file.close();
+    }
 
     void Send(NetworkFramework::Message message) override {
         Handle(message);
@@ -31,11 +37,10 @@ class SurakartaManualRecordSocketWrapper : public NetworkFramework::Socket {
 
    private:
     std::mutex mutex_;
-    std::string manual_;
-    std::string manual_path_;
     const std::shared_ptr<NetworkFramework::Socket> socket_;
     const PieceColor only_manual_color_;
     bool is_manual_enabled_ = false;
+    std::ofstream manual_file;
 
     void Handle(const NetworkFramework::Message& message) {
         std::lock_guard lock(mutex_);
@@ -46,17 +51,13 @@ class SurakartaManualRecordSocketWrapper : public NetworkFramework::Socket {
             }
         } else if (is_manual_enabled_) {
             if (message.opcode == OPCODE::MOVE_OP) {
-                manual_ += message.data1 + "-" + message.data2 + " ";
+                manual_file << message.data1 << "-" << message.data2 << " ";
             } else if (message.opcode == OPCODE::END_OP) {
                 auto decoded = SurakartaNetworkMessageEnd(message);
-                manual_ += SurakartaToString(decoded.EndReason())[0];
-                manual_ += "#";
+                manual_file << SurakartaToString(decoded.EndReason())[0] << "#";
                 is_manual_enabled_ = false;
             }
         }
-        std::ofstream manual_file;
-        manual_file.open(manual_path_);
-        manual_file << manual_;
-        manual_file.close();
+        manual_file.flush();
     }
 };
