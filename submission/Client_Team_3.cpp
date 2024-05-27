@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
         std::make_shared<ReverseProxyService>(
             server_address,
             server_port,
-            [path](auto socket) {
+            [&](auto socket) {
                 return std::make_shared<SurakartaNetworkSocketRawLogWrapper>(
                     std::make_shared<SurakartaManualRecordSocketWrapper>(socket, (path / "Team_3.txt").string(), PieceColor::BLACK),
                     logger);

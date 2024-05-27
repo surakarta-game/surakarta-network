@@ -11,14 +11,14 @@ class SurakartaNetworkSocketRawLogWrapper : public NetworkFramework::Socket {
         : socket_(std::move(socket)), logger_(logger) {}
 
     void Send(NetworkFramework::Message message) override {
-        logger_->CreateSublogger("send raw")->Log("Send: %d \"%s\" \"%s\" \"%s\"", message.opcode, message.data1, message.data2, message.data3);
+        logger_->CreateSublogger("send raw")->Log("Send: %d \"%s\" \"%s\" \"%s\"", message.opcode, message.data1.c_str(), message.data2.c_str(), message.data3.c_str());
         socket_->Send(message);
     }
 
     std::optional<NetworkFramework::Message> Receive() override {
         auto message = socket_->Receive();
         if (message.has_value()) {
-            logger_->CreateSublogger("recv raw")->Log("Receive: %d \"%s\" \"%s\" \"%s\"", message->opcode, message->data1, message->data2, message->data3);
+            logger_->CreateSublogger("recv raw")->Log("Receive: %d \"%s\" \"%s\" \"%s\"", message->opcode, message->data1.c_str(), message->data2.c_str(), message->data3.c_str());
         }
         return message;
     }

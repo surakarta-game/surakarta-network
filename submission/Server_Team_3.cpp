@@ -48,11 +48,11 @@ int main(int argc, char* argv[]) {
 
     std::shared_ptr<NetworkFramework::Server> inner_server;
     std::shared_ptr<NetworkFramework::Server> exposed_server;
-    auto logger = std::make_shared<SurakartaNetworkService>(std::make_shared<SurakartaLogger>(
+    auto logger = std::make_shared<SurakartaLogger>(
         std::make_shared<SurakartaLoggerStreamMultiple>(
             std::make_shared<SurakartaLoggerStreamStdout>(),
-            std::make_shared<SurakartaLoggerStreamFile>(run_log_path.c_str()))));
-    inner_server = std::make_shared<NetworkFramework::Server>(logger, inner_server_port);
+            std::make_shared<SurakartaLoggerStreamFile>(run_log_path.c_str())));
+    inner_server = std::make_shared<NetworkFramework::Server>(std::make_shared<SurakartaNetworkService>(logger), inner_server_port);
     exposed_server = std::make_shared<NetworkFramework::Server>(
         std::make_shared<ReverseProxyService>(
             "localhost",
