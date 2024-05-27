@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
         "localhost",
         reverse_proxy_port,
         "client",
-        0,
+        1,
         color,
         std::make_shared<SurakartaLogger>(
             std::make_shared<SurakartaLoggerStreamMultiple>(
