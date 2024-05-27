@@ -40,6 +40,7 @@ if(NOT TARGET surakarta-network)
         src/surakarta_network_service.cpp
         src/message.cpp
         src/socket_log_wrapper.cpp
+        src/reverse_proxy_service.cpp
     )
     if(WIN32)
         set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
@@ -96,5 +97,17 @@ if(NOT TARGET surakarta-network-test)
     endif()
     if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
         target_compile_options(surakarta-network-test PRIVATE /W4 /w14640)
+    endif()
+endif()
+
+if(NOT TARGET surakarta-reverse-proxy)
+    add_executable(surakarta-reverse-proxy src/reverse_proxy.cpp)
+    target_link_libraries(surakarta-reverse-proxy PRIVATE surakarta-network)
+    target_link_libraries(surakarta-reverse-proxy PRIVATE surakarta)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(surakarta-reverse-proxy PRIVATE -Wall -Wextra)
+    endif()
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        target_compile_options(surakarta-reverse-proxy PRIVATE /W4 /w14640)
     endif()
 endif()
