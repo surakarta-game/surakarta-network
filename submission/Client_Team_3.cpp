@@ -3,6 +3,7 @@
 #include "manual_record_socket_wrapper.h"
 #include "network_framework.h"
 #include "reverse_proxy_service.h"
+#include "socket_raw_log_wrapper.h"
 #include "surakarta.h"
 #include "surakarta_network.h"
 
@@ -26,12 +27,18 @@ int main(int argc, char* argv[]) {
     std::filesystem::create_directory(std::filesystem::current_path() / "record");
     std::filesystem::create_directory(std::filesystem::current_path() / "record" / "client");
     auto run_log_path = (path / ("Team_3_" + std::to_string(GlobalRandomGenerator::getInstance()()) + ".log")).string();
+    auto logger = std::make_shared<SurakartaLogger>(
+        std::make_shared<SurakartaLoggerStreamMultiple>(
+            std::make_shared<SurakartaLoggerStreamStdout>(),
+            std::make_shared<SurakartaLoggerStreamFile>(run_log_path.c_str())));
     auto reverse_proxy_server = NetworkFramework::Server(
         std::make_shared<ReverseProxyService>(
             server_address,
             server_port,
             [path](auto socket) {
-                return std::make_shared<SurakartaManualRecordSocketWrapper>(socket, (path / "Team_3.txt").string(), PieceColor::BLACK);
+                return std::make_shared<SurakartaNetworkSocketRawLogWrapper>(
+                    std::make_shared<SurakartaManualRecordSocketWrapper>(socket, (path / "Team_3.txt").string(), PieceColor::BLACK),
+                    logger);
             }),
         reverse_proxy_port);
     play(
@@ -40,10 +47,7 @@ int main(int argc, char* argv[]) {
         "client",
         1,
         color,
-        std::make_shared<SurakartaLogger>(
-            std::make_shared<SurakartaLoggerStreamMultiple>(
-                std::make_shared<SurakartaLoggerStreamStdout>(),
-                std::make_shared<SurakartaLoggerStreamFile>(run_log_path.c_str()))),
+        logger,
         false,
         3);
     return 0;

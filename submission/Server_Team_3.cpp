@@ -3,6 +3,7 @@
 #include "manual_record_socket_wrapper.h"
 #include "network_framework.h"
 #include "reverse_proxy_service.h"
+#include "socket_raw_log_wrapper.h"
 #include "surakarta.h"
 #include "surakarta_network.h"
 
@@ -47,19 +48,20 @@ int main(int argc, char* argv[]) {
 
     std::shared_ptr<NetworkFramework::Server> inner_server;
     std::shared_ptr<NetworkFramework::Server> exposed_server;
-    inner_server = std::make_shared<NetworkFramework::Server>(
-        std::make_shared<SurakartaNetworkService>(std::make_shared<SurakartaLogger>(
-            std::make_shared<SurakartaLoggerStreamMultiple>(
-                std::make_shared<SurakartaLoggerStreamStdout>(),
-                std::make_shared<SurakartaLoggerStreamFile>(run_log_path.c_str())))),
-        inner_server_port);
+    auto logger = std::make_shared<SurakartaNetworkService>(std::make_shared<SurakartaLogger>(
+        std::make_shared<SurakartaLoggerStreamMultiple>(
+            std::make_shared<SurakartaLoggerStreamStdout>(),
+            std::make_shared<SurakartaLoggerStreamFile>(run_log_path.c_str()))));
+    inner_server = std::make_shared<NetworkFramework::Server>(logger, inner_server_port);
     exposed_server = std::make_shared<NetworkFramework::Server>(
         std::make_shared<ReverseProxyService>(
             "localhost",
             inner_server_port,
             [&](auto socket) {
                 return std::make_shared<OnClosedSocketWrapper>(
-                    std::make_shared<SurakartaManualRecordSocketWrapper>(socket, (path / "Team_3.txt").string(), PieceColor::BLACK),
+                    std::make_shared<SurakartaNetworkSocketRawLogWrapper>(
+                        std::make_shared<SurakartaManualRecordSocketWrapper>(socket, (path / "Team_3.txt").string(), PieceColor::BLACK),
+                        logger),
                     [&]() {
                         std::unique_lock lock(mutex);
                         closed_count++;
