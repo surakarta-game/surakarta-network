@@ -54,7 +54,7 @@ int main() {
     socket7->Send(SurakartaNetworkMessageReady("user7", PieceColor::WHITE, 2));
     socket6->Close();
     Assert(socket7->Receive().value() == SurakartaNetworkMessageReady(
-                                             "user7",
+                                             "user6",
                                              PieceColor::WHITE,
                                              2));
     Assert(socket7->Receive().value() == SurakartaNetworkMessageEnd(
